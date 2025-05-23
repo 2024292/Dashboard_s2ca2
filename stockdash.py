@@ -2,86 +2,74 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import numpy as np
-import gdown
+import joblib
 import os
-from tensorflow.keras.models import load_model
 
-# 设置页面
-st.set_page_config(page_title="📈 Stock Forecast Dashboard", layout="wide")
-st.title("📊 LSTM Stock Price Forecast Dashboard")
+st.set_page_config(layout="wide")
+st.title("📈 Stock Price Prediction Dashboard")
 
-# ----------- 工具函数 ------------
-def download_file_from_drive(file_id, output_path):
-    """从 Google Drive 下载文件（如果本地没有）"""
-    if not os.path.exists(output_path):
-        url = f"https://drive.google.com/uc?id={file_id}"
-        
-        gdown.download(url, output_path, quiet=False)
-    return output_path
+# 股票公司列表
+companies = ["AAPL", "MSFT", "GOOG", "AMZN", "TSLA"]
+models_dir = "models"  # 模型存放路径
+data_dir = "data"      # 数据文件夹
 
-def load_lstm_model(model_path):
-    """加载 .keras 模型"""
-    return load_model(model_path)
+# 日期预测选项
+predict_days = st.sidebar.selectbox("📅 Select prediction horizon", ["1 day", "3 days", "7 days"])
+day_num = int(predict_days.split()[0])
 
-def load_test_data(csv_path):
-    """加载测试数据 CSV"""
-    return pd.read_csv(csv_path)
+# 选择公司
+selected_company = st.sidebar.selectbox("🏢 Select a company", companies)
 
-# ----------- 模型 & 数据映射 ------------
+# 加载历史数据
+@st.cache_data
+def load_data(company):
+    path = os.path.join(data_dir, f"{company}_data.csv")
+    return pd.read_csv(path, parse_dates=["Date"])
 
-MODEL_MAP = {
-    "AAPL - T+1": {
-        "model_id": "10mztuP5q8uc47bjvm4DE1E1lKDHksPyx",  # 替换为Google Drive的ID
-        "data_id": "1jRaeRGuN4FLQWXcGNIVRpD7-VSrLWMpn"
-    },
-    "AAPL - T+3": {
-        "model_id": "1D-VQEuB05mrf-UuYeQEEV1xHvffK6b0K",
-        "data_id": "1jRaeRGuN4FLQWXcGNIVRpD7-VSrLWMpn"
-    },
-    # 可继续添加更多模型
-}
+# 加载模型并进行预测
+def load_model_and_predict(company, horizon):
+    model_path = os.path.join(models_dir, f"{company}_model_{horizon}.pkl")
+    model = joblib.load(model_path)
+    
+    # 加载特征（这里假设特征预处理也已完成）
+    feature_path = os.path.join(data_dir, f"{company}_features_{horizon}.csv")
+    features = pd.read_csv(feature_path)
+    
+    prediction = model.predict(features)
+    return prediction
 
-# ----------- 用户选择模型 ------------
+# 显示历史收盘价
+df = load_data(selected_company)
+st.subheader(f"📊 {selected_company} Historical Close Price")
+fig = px.line(df, x="Date", y="Close", title=f"{selected_company} Close Price Over Time")
+st.plotly_chart(fig, use_container_width=True)
 
-selected_model = st.selectbox("请选择模型进行预测", list(MODEL_MAP.keys()))
+# 加载并显示预测
+try:
+    prediction = load_model_and_predict(selected_company, day_num)
+    st.success(f"✅ Predicted Close Price for next {day_num} day(s): {prediction[-1]:.2f}")
+    
+    # 显示预测趋势（最后一段历史数据 + 预测）
+    combined = df[["Date", "Close"]].copy()
+    last_date = combined["Date"].iloc[-1]
+    future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=day_num)
+    pred_df = pd.DataFrame({
+        "Date": future_dates,
+        "Close": prediction
+    })
+    combined = pd.concat([combined, pred_df], ignore_index=True)
 
-if selected_model:
-    model_info = MODEL_MAP[selected_model]
-    model_file = f"{selected_model.replace(' ', '_')}_model.keras"
-    data_file = f"{selected_model.replace(' ', '_')}_test.csv"
+    fig2 = go.Figure()
+    fig2.add_trace(go.Scatter(x=combined["Date"], y=combined["Close"], mode="lines+markers", name="Price"))
+    fig2.update_layout(title=f"{selected_company} Close Price Forecast ({predict_days})", xaxis_title="Date", yaxis_title="Price")
+    st.plotly_chart(fig2, use_container_width=True)
 
-    # 下载 & 加载模型
-    with st.spinner("加载模型中..."):
-        model_path = download_file_from_drive(model_info["model_id"], model_file)
-        model = load_lstm_model(model_path)
+except Exception as e:
+    st.error(f"❌ Could not load model or prediction data for {selected_company} ({day_num} days). Please check files.")
+    st.exception(e)
 
-    # 下载 & 加载数据
-    with st.spinner("加载测试数据..."):
-        data_path = download_file_from_drive(model_info["data_id"], data_file)
-        df = load_test_data(data_path)
-
-    st.success("模型和数据加载成功！")
-
-    # ----------- 构建 X 并预测 ------------
-    # 注意：假设你已经上传了一个 'X.npy' 预处理好的特征文件
-    x_file = f"{selected_model.replace(' ', '_')}_X.npy"
-    if os.path.exists(x_file):
-        X = np.load(x_file)
-        preds = model.predict(X).flatten()
-        actual = df["Close"].values[-len(preds):]
-
-        # ----------- 可视化 ------------
-        st.subheader("📉 实际 vs 预测")
-        fig, ax = plt.subplots(figsize=(10, 4))
-        ax.plot(actual, label="实际价格")
-        ax.plot(preds, label="预测价格")
-        ax.set_title(f"{selected_model} - 预测 vs 实际")
-        ax.set_xlabel("时间步")
-        ax.set_ylabel("收盘价")
-        ax.legend()
-        st.pyplot(fig)
-
-        st.metric("📍 最后预测值", f"{preds[-1]:.2f}")
-    else:
-        st.warning("⚠️ 找不到预处理特征文件（X.npy），请先构建并上传到同一目录。")
+# 展示EDA图像（如果有）
+eda_path = os.path.join(data_dir, f"{selected_company}_eda.png")
+if os.path.exists(eda_path):
+    st.subheader("🔍 Exploratory Data Analysis (EDA)")
+    st.image(eda_path, use_column_width=True)
