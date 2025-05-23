@@ -5,3 +5,6 @@ scikit-learn
 tensorflow
 gdown
 plotly
+yfinance
+altair
+watchdog
