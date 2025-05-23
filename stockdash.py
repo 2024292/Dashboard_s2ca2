@@ -31,12 +31,22 @@ def fetch_weekly_price_history(symbol, period='1y'):
     stock = yf.Ticker(symbol)
     return stock.history(period=period, interval='1wk')
 
+@st.cache_data
+def fetch_price_history_date(symbol, start_date, end_date):
+    """Fetch weekly price history for a given symbol over a custom date range."""
+    stock = yf.Ticker(symbol)
+    # yfinance expects dates as strings or datetime objects
+    return stock.history(start=start_date, end=end_date, interval='1wk')
+
 st.title("Stock Dashboard")
 symbol = st.text_input("Enter stock symbol (e.g., AAPL, TSLA):", "AAPL")
-period_option = st.selectbox(
-    "Select time period for price history:",
-    options=['1mo', '3mo', '6mo', '1y'],
-    index=3
+
+# Custom date range selection for price history
+start_date, end_date = st.date_input(
+    "Select start and end date for price history:",
+    [datetime.today() - timedelta(days=365), datetime.today()],
+    min_value=datetime(2000,1,1),
+    max_value=datetime.today()
 )
 
 information = fetch_stock_info(symbol)
@@ -46,7 +56,8 @@ st.subheader(f'Name: {information["longName"]}')
 st.subheader(f'Market Cap: {information["marketCap"]}')
 st.subheader(f'Sector: {information["sector"]}')
 
-price_history = fetch_weekly_price_history(symbol, period_option)
+# Fetch using custom date range
+price_history = fetch_price_history_date(symbol, start_date, end_date)
 
 price_history = price_history.rename_axis('Date').reset_index()
 candle_stick_chart = go.Figure(data=[go.Candlestick(x=price_history['Date'],
