@@ -20,7 +20,7 @@ def fetch_quarterly_financials(symbol):
 @st.cache_data
 def fetch_annual_financials(symbol):
     stock = yf.Ticker(symbol)
-    return stock.annual_financials.T
+    return stock.financials.T
 
 @st.cache_data
 def fetch_weekly_price_history(symbol):
