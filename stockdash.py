@@ -23,12 +23,21 @@ def fetch_annual_financials(symbol):
     return stock.financials.T
 
 @st.cache_data
-def fetch_weekly_price_history(symbol):
+def fetch_weekly_price_history(symbol, period='1y'):
+    """
+    Fetch weekly price history for a given symbol and period.
+    period: e.g. '1y', '6mo', '3mo', '1mo'
+    """
     stock = yf.Ticker(symbol)
-    return stock.history(period='1y', interval='1wk')
+    return stock.history(period=period, interval='1wk')
 
 st.title("Stock Dashboard")
 symbol = st.text_input("Enter stock symbol (e.g., AAPL, TSLA):", "AAPL")
+period_option = st.selectbox(
+    "Select time period for price history:",
+    options=['1mo', '3mo', '6mo', '1y'],
+    index=3
+)
 
 information = fetch_stock_info(symbol)
 
@@ -37,7 +46,7 @@ st.subheader(f'Name: {information["longName"]}')
 st.subheader(f'Market Cap: {information["marketCap"]}')
 st.subheader(f'Sector: {information["sector"]}')
 
-price_history = fetch_weekly_price_history(symbol)
+price_history = fetch_weekly_price_history(symbol, period_option)
 
 price_history = price_history.rename_axis('Date').reset_index()
 candle_stick_chart = go.Figure(data=[go.Candlestick(x=price_history['Date'],
