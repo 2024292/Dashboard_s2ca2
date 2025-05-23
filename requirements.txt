@@ -8,3 +8,5 @@ plotly
 yfinance
 altair
 watchdog
+statsmodels
+tensorflow
