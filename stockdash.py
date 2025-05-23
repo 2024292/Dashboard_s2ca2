@@ -37,6 +37,7 @@ st.subheader(f'Name: {information["longName"]}')
 st.subheader(f'Market Cap: {information["marketCap"]}')
 st.subheader(f'Sector: {information["sector"]}')
 
+price_history = fetch_weekly_price_history(symbol)
 
 price_history = price_history.rename_axis('Date').reset_index()
 candle_stick_chart = go.Figure(data=[go.Candlestick(x=price_history['Date'],
