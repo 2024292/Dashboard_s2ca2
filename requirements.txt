@@ -1,7 +1,6 @@
 streamlit
 numpy
 pandas
-matplotlib==3.7.1
 scikit-learn
-tensorflow-cpu
+tensorflow
 gdown
