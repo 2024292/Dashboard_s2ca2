@@ -169,13 +169,14 @@ if st.button('Run Forecast'):
         lstm_model.compile(loss='mean_squared_error', optimizer='adam')
         lstm_model.fit(X, y, epochs=5, batch_size=16, verbose=0)
         # Forecast future values
-        temp_input = data_scaled[-window:].tolist()
+        # Initialize temp_input as flat list of floats
+        temp_input = data_scaled[-window:].flatten().tolist()
         lstm_output = []
         for _ in range(horizon):
-            x_input = np.array(temp_input[-window:]).reshape(1, window, 1)
+            x_input = np.array(temp_input[-window:]).reshape(1, window, 1).astype('float32')
             yhat = lstm_model.predict(x_input, verbose=0)
             lstm_output.append(yhat[0, 0])
-            temp_input.append(yhat[0, 0])
+            temp_input.append(float(yhat[0, 0]))
         # Inverse scale
         lstm_forecast = scaler.inverse_transform(np.array(lstm_output).reshape(-1,1)).flatten()
         fc_dates = pd.date_range(start=last_date + timedelta(days=1), periods=horizon, freq='D')
