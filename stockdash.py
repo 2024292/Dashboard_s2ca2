@@ -52,9 +52,12 @@ start_date, end_date = st.date_input(
 information = fetch_stock_info(symbol)
 
 st.header('Company Information')
-st.subheader(f'Name: {information["longName"]}')
+st.subheader(f'Ticker: {information["longName"]}')
 st.subheader(f'Market Cap: {information["marketCap"]}')
 st.subheader(f'Sector: {information["sector"]}')
+st.subheader(f'Last Close Price: {information["previousClose"]}')
+st.subheader(f'Last Close Date: {information["lastCloseDate"]}')
+
 
 # Fetch using custom date range
 price_history = fetch_price_history_date(symbol, start_date, end_date)
