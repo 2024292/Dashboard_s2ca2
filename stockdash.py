@@ -59,26 +59,42 @@ selection = st.segmented_control(label = 'Period', options = ['Quarterly', 'Annu
 if selection == 'Quarterly':
     quarterly_financials = quarterly_financials.rename_axis('Quarter').reset_index()
     quarterly_financials['Quarter'] = quarterly_financials['Quarter'].astype(str)
+    # Ensure correct column names
+    if 'Total Revenue' not in quarterly_financials.columns:
+        if 'TotalRevenue' in quarterly_financials.columns:
+            quarterly_financials['Total Revenue'] = quarterly_financials['TotalRevenue']
+    if 'Net Income' not in quarterly_financials.columns:
+        if 'NetIncome' in quarterly_financials.columns:
+            quarterly_financials['Net Income'] = quarterly_financials['NetIncome']
     revenue_chart = alt.Chart(quarterly_financials).mark_bar(color='red').encode(
-        x= 'Quarter:0',
-        y= 'Total Revenue')
-    
+        x='Quarter:O',
+        y='Total Revenue'
+    )
     net_income_chart = alt.Chart(quarterly_financials).mark_bar(color='orange').encode(
-        x= 'Quarter:0',
-        y= 'Net Income')
+        x='Quarter:O',
+        y='Net Income'
+    )
     st.altair_chart(revenue_chart, use_container_width=True)
     st.altair_chart(net_income_chart, use_container_width=True)
 
 if selection == 'Annual':
     annual_financials = annual_financials.rename_axis('Year').reset_index()
-    annual_financials['Year'] = annual_financials['Year'].astype(str).transform(lambda x: x.split('-')[0])
+    annual_financials['Year'] = annual_financials['Year'].astype(str).str.split('-').str[0]
+    # Ensure correct column names
+    if 'Total Revenue' not in annual_financials.columns:
+        if 'TotalRevenue' in annual_financials.columns:
+            annual_financials['Total Revenue'] = annual_financials['TotalRevenue']
+    if 'Net Income' not in annual_financials.columns:
+        if 'NetIncome' in annual_financials.columns:
+            annual_financials['Net Income'] = annual_financials['NetIncome']
     revenue_chart = alt.Chart(annual_financials).mark_bar(color='red').encode(
-        x= 'Year:0',
-        y= 'Total Revenue')
-    
+        x='Year:O',
+        y='Total Revenue'
+    )
     net_income_chart = alt.Chart(annual_financials).mark_bar(color='orange').encode(
-        x= 'Year:0',
-        y= 'Net Income')
+        x='Year:O',
+        y='Net Income'
+    )
     st.altair_chart(revenue_chart, use_container_width=True)
     st.altair_chart(net_income_chart, use_container_width=True)
 
