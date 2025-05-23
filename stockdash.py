@@ -5,27 +5,79 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import altair as alt
 
+
+@st.cache_data
 def fetch_stock_info(symbol):
-    pass
+    stock = yf.Ticker(symbol)
+    
+    return stock.info
 
-
+@st.cache_data
 def fetch_quarterly_financials(symbol):
     stock = yf.Ticker(symbol)
-    quarterly_financials = stock.quarterly_financials
-    return quarterly_financials
+    return stock.quarterly_financials.T
 
-
+@st.cache_data
 def fetch_annual_financials(symbol):
     stock = yf.Ticker(symbol)
-    annual_financials = stock.financials
-    return annual_financials
+    return stock.annual_financials.T
 
+@st.cache_data
 def fetch_weekly_price_history(symbol):
     stock = yf.Ticker(symbol)
-    end_date = datetime.now()
-    start_date = end_date - timedelta(weeks=52)  # Fetch data for the last year
-    weekly_data = stock.history(period='1y', interval='1wk')
-    return weekly_data
+    return stock.history(period='1y', interval='1wk')
 
 st.title("Stock Dashboard")
 symbol = st.text_input("Enter stock symbol (e.g., AAPL, TSLA):", "AAPL")
+
+information = fetch_stock_info(symbol)
+
+st.header('Company Information')
+st.subheader(f'Name: {information["longName"]}')
+st.subheader(f'Market Cap: {information["marketCap"]}')
+st.subheader(f'Sector: {information["sector"]}')
+
+
+price_history = price_history.rename_axis('Date').reset_index()
+candle_stick_chart = go.Figure(data=[go.Candlestick(x=price_history['Date'],
+    open=price_history['Open'],
+    high=price_history['High'],
+    low=price_history['Low'],
+    close=price_history['Close'])])
+
+candle_stick_chart.update_layout(xaxis_rangeslider_visible=False,)
+st.plotly_chart(candle_stick_chart, use_container_width=True)
+
+
+quarterly_financials = fetch_quarterly_financials(symbol)
+annual_financials = fetch_annual_financials(symbol)
+
+st.header('Financials')
+
+selection = st.segmented_control(label = 'Period', options = ['Quarterly', 'Annual'], default = 'Quarterly')
+if selection == 'Quarterly':
+    quarterly_financials = quarterly_financials.rename_axis('Quarter').reset_index()
+    quarterly_financials['Quarter'] = quarterly_financials['Quarter'].astype(str)
+    revenue_chart = alt.Chart(quarterly_financials).mark_bar(color='red').encode(
+        x= 'Quarter:0',
+        y= 'Total Revenue')
+    
+    net_income_chart = alt.Chart(quarterly_financials).mark_bar(color='orange').encode(
+        x= 'Quarter:0',
+        y= 'Net Income')
+    st.altair_chart(revenue_chart, use_container_width=True)
+    st.altair_chart(net_income_chart, use_container_width=True)
+
+if selection == 'Annual':
+    annual_financials = annual_financials.rename_axis('Year').reset_index()
+    annual_financials['Year'] = annual_financials['Year'].astype(str).transform(lambda x: x.split('-')[0])
+    revenue_chart = alt.Chart(annual_financials).mark_bar(color='red').encode(
+        x= 'Year:0',
+        y= 'Total Revenue')
+    
+    net_income_chart = alt.Chart(annual_financials).mark_bar(color='orange').encode(
+        x= 'Year:0',
+        y= 'Net Income')
+    st.altair_chart(revenue_chart, use_container_width=True)
+    st.altair_chart(net_income_chart, use_container_width=True)
+
