@@ -165,7 +165,6 @@ if st.button('Run Forecast'):
         # Build LSTM model
         lstm_model = Sequential()
         lstm_model.add(LSTM(16, input_shape=(X.shape[1], 1)))
-        lstm_model.dropout(0.2)
         lstm_model.add(Dense(1))
         lstm_model.compile(loss='mean_squared_error', optimizer='adam')
         lstm_model.fit(X, y, epochs=5, batch_size=16, verbose=0)
