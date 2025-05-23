@@ -2,7 +2,7 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import altair as alt
 
 
@@ -44,9 +44,9 @@ symbol = st.text_input("Enter stock symbol (e.g., AAPL, TSLA):", "AAPL")
 # Custom date range selection for price history
 start_date, end_date = st.date_input(
     "Select start and end date for price history:",
-    [datetime.today() - timedelta(days=365), datetime.today()],
-    min_value=datetime(2000,1,1),
-    max_value=datetime.today()
+    value=(date.today() - timedelta(days=365), date.today()),
+    min_value=date(2000,1,1),
+    max_value=date.today()
 )
 
 information = fetch_stock_info(symbol)
