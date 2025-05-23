@@ -4,6 +4,11 @@ import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime, timedelta, date
 import altair as alt
+import numpy as np
+from statsmodels.tsa.statespace.sarimax import SARIMAX
+from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense
 
 
 @st.cache_data
@@ -56,7 +61,7 @@ st.subheader(f'Ticker: {information["longName"]}')
 st.subheader(f'Market Cap: {information["marketCap"]}')
 st.subheader(f'Sector: {information["sector"]}')
 st.subheader(f'Last Close Price: {information["previousClose"]}')
-st.subheader(f'Last Close Date: {information["lastCloseDate"]}')
+#st.subheader(f'Last Close Date: {information["lastCloseDate"]}')
 
 
 # Fetch using custom date range
@@ -120,4 +125,68 @@ if selection == 'Annual':
     )
     st.altair_chart(revenue_chart, use_container_width=True)
     st.altair_chart(net_income_chart, use_container_width=True)
+
+# Forecast future prices
+st.header('Price Forecast')
+model_option = st.selectbox('Select forecasting model:', ['SARIMAX', 'LSTM'])
+horizon = st.selectbox('Select forecast horizon (days):', [1, 3, 7], index=0)
+if st.button('Run Forecast'):
+    # Prepare historical close price series
+    hist_df = price_history.set_index('Date')
+    close_series = hist_df['Close']
+    last_date = hist_df.index[-1]
+    if model_option == 'SARIMAX':
+        # Fit SARIMAX model
+        model = SARIMAX(close_series, order=(1,1,1), enforce_stationarity=False, enforce_invertibility=False)
+        result = model.fit(disp=False)
+        # Forecast next periods
+        forecast = result.get_forecast(steps=horizon).predicted_mean
+        # Forecast dates
+        fc_dates = pd.date_range(start=last_date + timedelta(days=1), periods=horizon, freq='D')
+        fc_df = pd.DataFrame({'Date': fc_dates, 'Forecast': forecast.values})
+        # Plot SARIMAX forecast
+        fig_fc = go.Figure()
+        fig_fc.add_trace(go.Scatter(x=hist_df.index, y=close_series, name='Historical Close'))
+        fig_fc.add_trace(go.Scatter(x=fc_df['Date'], y=fc_df['Forecast'], name='SARIMAX Forecast', line=dict(dash='dash')))
+        fig_fc.update_layout(title='Historical and SARIMAX Forecasted Close Prices', xaxis_title='Date', yaxis_title='Price')
+        st.plotly_chart(fig_fc, use_container_width=True)
+    else:
+        # LSTM forecasting
+        # Scale data
+        data = close_series.values.reshape(-1,1)
+        scaler = MinMaxScaler()
+        data_scaled = scaler.fit_transform(data)
+        # Prepare sequences
+        window = 5
+        X, y = [], []
+        for i in range(window, len(data_scaled)):
+            X.append(data_scaled[i-window:i, 0])
+            y.append(data_scaled[i, 0])
+        X, y = np.array(X), np.array(y)
+        X = X.reshape(X.shape[0], X.shape[1], 1)
+        # Build LSTM model
+        lstm_model = Sequential()
+        lstm_model.add(LSTM(16, input_shape=(X.shape[1], 1)))
+        lstm_model.dropout(0.2)
+        lstm_model.add(Dense(1))
+        lstm_model.compile(loss='mean_squared_error', optimizer='adam')
+        lstm_model.fit(X, y, epochs=5, batch_size=16, verbose=0)
+        # Forecast future values
+        temp_input = data_scaled[-window:].tolist()
+        lstm_output = []
+        for _ in range(horizon):
+            x_input = np.array(temp_input[-window:]).reshape(1, window, 1)
+            yhat = lstm_model.predict(x_input, verbose=0)
+            lstm_output.append(yhat[0, 0])
+            temp_input.append(yhat[0, 0])
+        # Inverse scale
+        lstm_forecast = scaler.inverse_transform(np.array(lstm_output).reshape(-1,1)).flatten()
+        fc_dates = pd.date_range(start=last_date + timedelta(days=1), periods=horizon, freq='D')
+        fc_df_lstm = pd.DataFrame({'Date': fc_dates, 'Forecast': lstm_forecast})
+        # Plot LSTM forecast
+        fig_lstm = go.Figure()
+        fig_lstm.add_trace(go.Scatter(x=hist_df.index, y=close_series, name='Historical Close'))
+        fig_lstm.add_trace(go.Scatter(x=fc_df_lstm['Date'], y=fc_df_lstm['Forecast'], name='LSTM Forecast', line=dict(dash='dot')))
+        fig_lstm.update_layout(title='Historical and LSTM Forecasted Close Prices', xaxis_title='Date', yaxis_title='Price')
+        st.plotly_chart(fig_lstm, use_container_width=True)
 
